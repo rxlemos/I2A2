@@ -1,0 +1,10 @@
+streamlit
+pandas
+matplotlib
+seaborn
+numpy
+langchain
+langchain-google-genai
+langchain-chroma
+tabulate
+python-dotenv # Opcional, para carregar chaves de API de um arquivo .env
