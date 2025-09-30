@@ -27,24 +27,18 @@ from langchain.schema import Document
 # --------------------------------------------------------------------------------
 # Configuração e Constantes
 # --------------------------------------------------------------------------------
-# Diretórios para salvar arquivos temporários e o banco de dados vetorial
 TEMP_DATA_FILE = "temp_df.pkl"
 CHROMA_DB_DIR = "chroma_db_eda"
 PLOTS_DIR = "plots"
 
-# Cria o diretório de plots se não existir
 if not os.path.exists(PLOTS_DIR):
     os.makedirs(PLOTS_DIR)
 
-# --- NOVA LÓGICA PARA CARREGAR A API KEY DE FORMA SEGURA ---
 try:
-    # Tenta carregar a chave do Streamlit Secrets (para o ambiente de produção/nuvem)
     GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
 except (KeyError, FileNotFoundError):
-    # Se não encontrar, avisa o usuário para configurar localmente
-    st.warning("Chave de API do Google não encontrada. Configure-a no arquivo .streamlit/secrets.toml para uso local.")
+    st.warning("Chave de API do Google não configurada nos Secrets do Streamlit.")
     GOOGLE_API_KEY = None
-# --- FIM DA NOVA LÓGICA ---
 
 # --------------------------------------------------------------------------------
 # Funções Auxiliares
@@ -85,7 +79,10 @@ def save_analysis_to_rag(vector_store, question: str, answer: str):
 # --------------------------------------------------------------------------------
 @tool
 def search_past_analyses(query: str) -> str:
-    # ... (código das ferramentas permanece o mesmo)
+    """
+    Pesquisa em análises e conclusões passadas para responder a uma pergunta.
+    Use esta ferramenta PRIMEIRO se a pergunta do usuário for sobre 'conclusões', 'resumos anteriores' ou 'análises já feitas'.
+    """
     if "vector_store" in st.session_state and st.session_state.vector_store:
         results = st.session_state.vector_store.similarity_search(query, k=3)
         if not results:
@@ -93,9 +90,14 @@ def search_past_analyses(query: str) -> str:
         context = "\n\n---\n\n".join([doc.page_content for doc in results])
         return f"Análises passadas encontradas que podem ser relevantes:\n\n{context}"
     return "O banco de dados de análises passadas não está disponível."
+
+# --- ALTERAÇÃO 1: Removido o argumento 'query' não utilizado ---
 @tool
-def get_dataframe_info(query: str) -> str:
-    # ... (código das ferramentas permanece o mesmo)
+def get_dataframe_info() -> str:
+    """
+    Retorna um resumo completo do DataFrame ATUAL, incluindo colunas, tipos de dados, valores ausentes e estatísticas descritivas.
+    Esta deve ser a PRIMEIRA ferramenta a ser usada para entender um novo conjunto de dados. Não requer argumentos.
+    """
     try:
         df = pd.read_pickle(TEMP_DATA_FILE)
     except FileNotFoundError:
@@ -104,9 +106,14 @@ def get_dataframe_info(query: str) -> str:
     df.info(buf=buffer)
     info_str = buffer.getvalue()
     return f"Resumo do Arquivo Atual:\n{info_str}\n\nEstatísticas Descritivas:\n{df.describe().to_string()}"
+
+# --- ALTERAÇÃO 2: Removido o argumento 'query' não utilizado ---
 @tool
-def get_all_variability(query: str) -> str:
-    # ... (código das ferramentas permanece o mesmo)
+def get_all_variability() -> str:
+    """
+    Calcula o desvio padrão e a variância para TODAS as colunas numéricas do arquivo ATUAL.
+    Use para perguntas sobre 'variabilidade', 'dispersão', 'desvio padrão' ou 'variância' dos dados. Não requer argumentos.
+    """
     try:
         df = pd.read_pickle(TEMP_DATA_FILE)
     except FileNotFoundError:
@@ -116,9 +123,12 @@ def get_all_variability(query: str) -> str:
         return "Nenhuma coluna numérica encontrada no arquivo para calcular a variabilidade."
     variability = pd.DataFrame({'Desvio Padrão': numeric_df.std(), 'Variância': numeric_df.var()}).reset_index().rename(columns={'index': 'Coluna'})
     return f"A variabilidade para as colunas numéricas é a seguinte:\n{variability.to_markdown(index=False)}"
+
 @tool
 def plot_distribution(column_name: str) -> str:
-    # ... (código das ferramentas permanece o mesmo)
+    """
+    Cria e salva um gráfico de distribuição (histograma ou contagem) para uma ÚNICA coluna específica do arquivo ATUAL.
+    """
     try:
         df = pd.read_pickle(TEMP_DATA_FILE)
     except FileNotFoundError:
@@ -142,9 +152,12 @@ def plot_distribution(column_name: str) -> str:
     plt.savefig(file_path)
     plt.close(fig)
     return f"Gráfico de distribuição salvo como '{file_path}'."
+
 @tool
 def plot_scatterplot(column_x: str, column_y: str) -> str:
-    # ... (código das ferramentas permanece o mesmo)
+    """
+    Cria e salva um gráfico de dispersão (scatterplot) para visualizar a relação entre DUAS colunas NUMÉRICAS.
+    """
     try:
         df = pd.read_pickle(TEMP_DATA_FILE)
     except FileNotFoundError:
@@ -164,9 +177,12 @@ def plot_scatterplot(column_x: str, column_y: str) -> str:
     plt.savefig(file_path)
     plt.close(fig)
     return f"Gráfico de dispersão salvo como '{file_path}'."
+
 @tool
 def plot_boxplot(numeric_column: str, categorical_column: str) -> str:
-    # ... (código das ferramentas permanece o mesmo)
+    """
+    Cria e salva um boxplot para comparar a distribuição de uma coluna NUMÉRICA através das categorias de uma coluna CATEGÓRICA.
+    """
     try:
         df = pd.read_pickle(TEMP_DATA_FILE)
     except FileNotFoundError:
@@ -186,9 +202,12 @@ def plot_boxplot(numeric_column: str, categorical_column: str) -> str:
     plt.savefig(file_path)
     plt.close(fig)
     return f"Boxplot salvo como '{file_path}'."
+
 @tool
 def plot_correlation_heatmap() -> str:
-    # ... (código das ferramentas permanece o mesmo)
+    """
+    Calcula e salva um mapa de calor (heatmap) da matriz de correlação para TODAS as colunas numéricas do arquivo. Não precisa de argumentos.
+    """
     try:
         df = pd.read_pickle(TEMP_DATA_FILE)
     except FileNotFoundError:
@@ -206,9 +225,13 @@ def plot_correlation_heatmap() -> str:
     plt.savefig(file_path)
     plt.close(fig)
     return f"Mapa de calor de correlação salvo como '{file_path}'."
+
 @tool
 def plot_lineplot(time_column: str, value_column: str) -> str:
-    # ... (código das ferramentas permanece o mesmo)
+    """
+    Cria e salva um gráfico de linhas para mostrar a tendência de uma coluna NUMÉRICA ao longo de uma coluna de TEMPO ou SEQUENCIAL.
+    Se o dataset for muito grande, uma amostra dos dados será usada para gerar o gráfico mais rapidamente.
+    """
     try:
         df = pd.read_pickle(TEMP_DATA_FILE)
     except FileNotFoundError:
@@ -243,7 +266,6 @@ st.title("🤖 Agente de Análise de Dados com Gemini")
 
 with st.sidebar:
     st.header("1. Carregue seus Dados")
-    # REMOVIDO o campo de texto para a chave. A aplicação agora usa a chave dos Secrets.
     uploaded_file = st.file_uploader("Escolha um arquivo CSV", type="csv")
     if uploaded_file:
         try:
@@ -266,11 +288,10 @@ with st.sidebar:
             "- Mostre o mapa de calor de correlação."
         )
     elif not GOOGLE_API_KEY:
-         st.error("A chave de API não foi configurada. A aplicação não pode funcionar.")
+         st.error("A chave de API não foi configurada nos Secrets. A aplicação não pode funcionar.")
     else:
         st.warning("Carregue um arquivo CSV para começar.")
 
-# --- Inicialização do Agente e da Memória ---
 available_tools = [
     get_dataframe_info, get_all_variability, plot_distribution,
     search_past_analyses, plot_scatterplot, plot_boxplot,
@@ -278,7 +299,22 @@ available_tools = [
 ]
 prompt_template = ChatPromptTemplate.from_messages(
     [
-        ("system", "Você é um cientista de dados assistente... (prompt completo omitido por brevidade)"),
+        ("system", """Você é um cientista de dados assistente. Sua principal tarefa é analisar o arquivo CSV carregado na sessão ATUAL.
+
+        **Seu Fluxo de Trabalho e Ferramentas:**
+        1.  **Entendimento Inicial:** Ao analisar um novo arquivo, SEMPRE comece usando `get_dataframe_info`.
+        2.  **Memória:** Se a pergunta for sobre 'conclusões' ou 'análises passadas', use `search_past_analyses`.
+        3.  **Análise Univariada (1 variável):**
+            - Para um resumo de variabilidade (desvio padrão, variância), use `get_all_variability`.
+            - Para visualizar a distribuição de UMA coluna, use `plot_distribution`.
+        4.  **Análise Bivariada (2 variáveis):**
+            - Para ver a relação entre DUAS colunas NUMÉRICAS, use `plot_scatterplot`.
+            - Para comparar uma coluna NUMÉRICA entre as categorias de uma coluna CATEGÓRICA, use `plot_boxplot`.
+            - Para ver a tendência de um valor NUMÉRICO ao longo do TEMPO/sequência, use `plot_lineplot`.
+        5.  **Análise Multivariada (+2 variáveis):**
+            - Para visualizar a correlação entre TODAS as colunas numéricas, use `plot_correlation_heatmap`.
+      
+        Responda em português, de forma clara. Ao gerar um gráfico, avise o usuário e informe o nome do arquivo. Forneça um parágrafo de 'Conclusão' após análises complexas."""),
         ("placeholder", "{chat_history}"),
         ("human", "{input}"),
         ("placeholder", "{agent_scratchpad}"),
@@ -290,7 +326,6 @@ if "messages" not in st.session_state:
 
 if "agent_executor" not in st.session_state and GOOGLE_API_KEY:
     try:
-        # CORRIGIDO: Usando o nome de modelo estável 'gemini-pro'
         llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", temperature=0.4, google_api_key=GOOGLE_API_KEY, convert_system_message_to_human=True)
         agent = create_tool_calling_agent(llm, available_tools, prompt_template)
         st.session_state.agent_executor = AgentExecutor(agent=agent, tools=available_tools, verbose=True, handle_parsing_errors=True, return_intermediate_steps=True)
@@ -299,7 +334,6 @@ if "agent_executor" not in st.session_state and GOOGLE_API_KEY:
         st.error(f"Erro ao inicializar o agente do LangChain: {e}")
         if "agent_executor" in st.session_state: del st.session_state.agent_executor
 
-# --- Área de Chat Principal ---
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
