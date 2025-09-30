@@ -50,10 +50,5 @@ Passo 6: Execute o Agente: Agora, basta rodar o seguinte comando:
 	Bash -->
 		streamlit run app.py
 
-#Passo 7: Instalar as bibliotecas para o nosso banco de dados vetorial e o tabulate
-#	Bash -->
-#		pip install chromadb langchain-chroma
-#		pip install tabulate
-
 
 
